@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Turtle Fleet — Connection Test</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0b1220;color:#edf3ff}
+body{max-width:1024px;margin:2rem auto;padding:0 1rem}h1{margin-bottom:.15rem}small,.muted{color:#aabbd1}
+section{background:#192437;border:1px solid #30445f;border-radius:12px;padding:1.1rem;margin:1.3rem 0}
+input{background:#0e1829;color:#fff;border:1px solid #48617a;padding:.75rem;min-width:220px;max-width:100%;border-radius:8px;font-size:1rem}
+button{background:#4a85eb;border:0;color:#fff;padding:.78rem 1rem;border-radius:8px;cursor:pointer;font-weight:600}
+form{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center}
+table{border-collapse:collapse;width:100%;min-width:580px}th,td{text-align:left;padding:.8rem;border-bottom:1px solid #32445a}
+th{color:#b5c9de} .scroll{overflow:auto} .pill{padding:.2rem .5rem;border-radius:10px;background:#713b3b}.pill.on{background:#1d6e55}
+#message{color:#f9c68c}code{color:#9de1f4}
+</style></head><body>
+<h1>Mining Fleet</h1><p class="muted">Phase 1 — Safe connection monitoring only. No mining, movement, or updates yet.</p>
+<section><form id="login"><label for="key">Admin key</label><input id="key" type="password" autocomplete="off" required placeholder="ADMIN_KEY from App Platform"><button type="submit">Connect dashboard</button></form><p id="message" role="status" aria-live="polite">Enter your admin key to load connected turtles.</p></section>
+<section><h2>Fleet <small id="count">—</small></h2><div class="scroll"><table><thead><tr><th>ID</th><th>Status</th><th>Label</th><th>GPS</th><th>Fuel</th><th>Slots used</th><th>Last seen (UTC)</th></tr></thead><tbody id="rows"><tr><td colspan="7" class="muted">Connect above to load fleet.</td></tr></tbody></table></div></section>
+<script>
+const keyInput=document.getElementById('key'), message=document.getElementById('message');
+const rows=document.getElementById('rows'),count=document.getElementById('count');
+let token='',timer;
+function cell(tr,value){const td=document.createElement('td');td.textContent=String(value??'—');tr.appendChild(td);return td;}
+async function refresh(){
+ if(!token)return;
+ try{
+  const response=await fetch('/api/turtles',{headers:{'X-Admin-Key':token},cache:'no-store'});
+  if(!response.ok){message.textContent=response.status===401?'Invalid admin key.':'Error '+response.status;clearInterval(timer);token='';return;}
+  const data=await response.json();rows.replaceChildren();count.textContent=`${data.connected} online / ${data.turtles.length} registered`;
+  if(!data.turtles.length){const tr=document.createElement('tr');cell(tr,'No turtles registered yet');rows.appendChild(tr);}
+  for(const t of data.turtles){
+   const tr=document.createElement('tr');cell(tr,t.id);const status=cell(tr,t.online?'Online':'Offline');status.className='pill '+(t.online?'on':'');
+   cell(tr,t.label);cell(tr,t.pos?`${t.pos.x}, ${t.pos.y}, ${t.pos.z}`:'GPS unavailable');
+   cell(tr,t.fuel);cell(tr,t.slots);cell(tr,t.last_seen);rows.appendChild(tr);
+  }
+  message.textContent='Dashboard connected. Refreshes every 5 seconds.';
+ }catch(err){message.textContent='Cannot connect: '+err.message;}
+}
+document.getElementById('login').addEventListener('submit',e=>{e.preventDefault();token=keyInput.value;keyInput.value='';clearInterval(timer);refresh();timer=setInterval(refresh,5000);});
+</script></body></html>
